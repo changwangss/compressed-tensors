@@ -147,7 +147,12 @@ def unpack_from_int32(
     # 4-bit values never straddle a byte, so split bytes instead of gathering
     # words. Big-endian hosts store each word's bytes in reverse order.
     if num_bits == 4:
-        nibbles = value.contiguous().view(torch.uint8)
+        value = value.contiguous()
+        # contiguous() may preserve a non-unit stride on a singleton dimension,
+        # but viewing int32 as bytes requires the last stride to be one.
+        if value.stride(-1) != 1:
+            value = value.clone(memory_format=torch.contiguous_format)
+        nibbles = value.view(torch.uint8)
         # Note: only CPU devices can be big-endian
         # https://github.com/pytorch/pytorch/blob/orig/release/2.15/torch/_tensor.py#L74
         if value.device.type == "cpu" and sys.byteorder == "big":
